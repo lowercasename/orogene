@@ -46,9 +46,13 @@ Orogene needs a couple of things to be set up just the way it likes.
    ```
    Your `template.html` file should be a complete HTML file containing, in a single location, the string `{{content}}`, which will be replaced with your page content during generation, and optionally the string `{{style}}`, which can be replaced with the contents of a CSS file.
 4. Run Orogene. For the directory structure above, something like the following will do the trick:
-   `orogene --input-dir ./src/pages --output-dir ./build --template-file ./src/template.html --style-file ./src/style.css --assets-dir ./src/assets --minify --directory-per-page --verbose`
+   ```
+   orogene --input-dir ./src/pages --output-dir ./build --template-file ./src/template.html --style-file ./src/style.css --assets-dir ./src/assets --minify --directory-per-page --verbose
+   ```
    You can of course also use short versions of all these flags:
-   `orogene -mdv -i ./src/pages -o ./build -t ./src/template.html -s ./src/style.css -a ./src/assets`
+   ```
+   orogene -mdv -i ./src/pages -o ./build -t ./src/template.html -s ./src/style.css -a ./src/assets
+   ```
 5. This will create the following website in a directory called `build`:
   ```
   build
