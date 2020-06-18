@@ -1,5 +1,5 @@
 use ansi_term::Style;
-use chrono::{DateTime, NaiveDate};
+use chrono::{NaiveDate};
 use clap::Clap;
 use comrak::{markdown_to_html, ComrakOptions};
 use copy_dir::copy_dir;
@@ -94,11 +94,12 @@ fn generate_html(
       let rendered_content = &parse_markdown(md_content);
       let title = &front_matter["title"].as_str().unwrap();
       let date = &front_matter["date"].as_str().unwrap();
+      let formatted_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
       // Fill the post template with the post content and frontmatter
       if let Some(post_template_content) = post_template_content {
         let post_in_template = post_template_content
           .replace("{{title}}", title)
-          .replace("{{date}}", date)
+          .replace("{{date}}", &formatted_date)
           .replace("{{content}}", rendered_content);
         // Then fill the page template with the rendered post
         result = template_content.replace("{{content}}", &post_in_template);
@@ -142,13 +143,14 @@ fn generate_html(
       if result.contains("{{post_list}}") {
         let mut html = "".to_string();
         for x in blog_posts_vector.iter() {
+          let formatted_date = NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y");
           let line = format!(
                       "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
                       &x[0], // Blog directory
                       &x[1], // Blog post filename
                       &x[2], // Blog post title
-                      &x[3], // Blog post date
-                      &x[3], // Blog post date
+                      &x[3], // Blog post date (HTML5 datetime value)
+                      formatted_date, // Blog post date (formatted)
                     );
           html.push_str(&line);
         }
