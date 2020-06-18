@@ -50,6 +50,7 @@ fn parse_markdown(md_content: &str) -> String {
   let options = ComrakOptions {
     ext_autolink: true,
     unsafe_: true,
+    github_pre_lang: true,
     ..ComrakOptions::default()
   };
   return markdown_to_html(md_content, &options);
