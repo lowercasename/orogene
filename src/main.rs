@@ -185,7 +185,7 @@ fn generate_html(
         let mut html = "".to_string();
         for x in blog_posts_vector.iter() {
           let line = [
-            "<div><p><a href='/",
+            "<article class='post-link'><a href='/",
             &x[0],
             "/",
             &x[1],
@@ -193,7 +193,7 @@ fn generate_html(
             &x[2],
             "</a></p><p>",
             &x[3],
-            "</p></div>",
+            "</p></article>",
           ]
           .concat();
           html.push_str(&line);
