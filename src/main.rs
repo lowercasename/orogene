@@ -1,74 +1,166 @@
-use comrak::{markdown_to_html, ComrakOptions};
-use html_minifier::HTMLMinifier;
-use copy_dir::copy_dir;
-use rustop::opts;
-use std::{fs, path};
 use ansi_term::Style;
-use std::time::{Instant};
+use clap::Clap;
+use comrak::{markdown_to_html, ComrakOptions};
+use copy_dir::copy_dir;
+use frontmatter::parse_and_find_content;
+use html_minifier::HTMLMinifier;
+use regex::Regex;
+use std::cmp::Reverse;
+use std::fs;
+use std::time::Instant;
 
-fn main() {
-  // Start operation timer
-  let operation_timer = Instant::now();
-  // Rustop sets up our command line arguments.
-  let (args, _rest) = opts! {
-      synopsis "A simple static site generator.";
-      opt input_dir:String, desc:"The directory containing your source files.";
-      opt output_dir:String, desc:"The directory where your site will be generated.";
-      opt assets_dir:Option<String>, desc:"The directory where your static assets are located (optional).";
-      opt template_file:String, desc:"The HTML template file with which to build your pages.";
-      opt style_file:Option<String>, desc:"The CSS file to attach to your pages (optional).";
-      opt directory_per_page:bool, desc:"Create a separate directory for each output file.";
-      opt minify:bool, desc:"Minify the output files.";
-      opt verbose:bool, desc:"Display verbose conversion output.";
-  }
-  .parse_or_exit();
+// Build CLI
+#[derive(Clap)]
+#[clap(
+  name = "Orogene",
+  version = "0.1.0",
+  author = "Raphael Kabo <raphaelkabo@gmail.com>",
+  about = "A simple static site generator."
+)]
+struct Opts {
+  #[clap(short, long, about = "The directory containing your source files.")]
+  input_dir: String,
+  #[clap(
+    short,
+    long,
+    about = "The directory where your site will be generated."
+  )]
+  output_dir: String,
+  #[clap(
+    short,
+    long,
+    about = "The HTML template file with which to build your pages."
+  )]
+  template_file: String,
+  #[clap(
+    short,
+    long,
+    about = "The directory containing your blog posts (optional)."
+  )]
+  blog_dir: Option<String>,
+  #[clap(
+    short,
+    long,
+    about = "The HTML template file with which to build your posts (optional; required if --posts-dir is set)."
+  )]
+  post_template_file: Option<String>,
+  #[clap(
+    short,
+    long,
+    about = "The CSS file to attach to your pages (optional)."
+  )]
+  style_file: Option<String>,
+  #[clap(
+    short,
+    long,
+    about = "The directory where your static assets are located (optional)."
+  )]
+  assets_dir: Option<String>,
+  #[clap(
+    short,
+    long,
+    about = "Create a separate directory for each output file."
+  )]
+  directory_per_page: bool,
+  #[clap(short, long, about = "Minify the output files.")]
+  minify: bool,
+  #[clap(short, long, about = "Display verbose generation output.")]
+  verbose: bool,
+}
 
-  let output_directory = &args.output_dir;
-  let paths = fs::read_dir(args.input_dir).unwrap();
-  let template_content =
-    fs::read_to_string(args.template_file).expect("Something went wrong reading the template file");
-  // I think these have to be set initially in case a style file isn't being used
-  let mut with_style = false;
-  let mut style_content: String = "".to_string();
-  if let Some(style_file) = args.style_file {
-    style_content =
-      fs::read_to_string(style_file).expect("Something went wrong reading the CSS file");
-    with_style = true;
-  }
-  // Wipe the build directory first
-  if args.verbose { println!("{} {}", Style::new().bold().paint("Recreating build directory:"), &output_directory) }
-  fs::remove_dir_all(&output_directory).unwrap();
-  fs::create_dir(&output_directory).unwrap();
-  // Copy the assets dir over, if we're using one
-  if let Some(assets_dir) = args.assets_dir {
-    let dir_name: String = assets_dir.split('/').last().unwrap().to_string();
-    // From src/foo to build/foo
-    let dest_path = [&output_directory, "/", &dir_name].concat();
-    if args.verbose { println!("{} {} > {}", Style::new().bold().paint("Copying assets directory:"), &assets_dir, &dest_path) }
-    copy_dir(&assets_dir, &dest_path).unwrap();
-  }
-  // Loop through the top level of our parent directory.
+fn parse_markdown(md_content: &str) -> String {
+  // Parse Markdown
+  let options = ComrakOptions {
+    ext_autolink: true,
+    unsafe_: true,
+    ..ComrakOptions::default()
+  };
+  return markdown_to_html(md_content, &options);
+}
+
+fn generate_html(
+  paths: Vec<std::fs::DirEntry>,
+  output_directory: &str,
+  with_style: bool,
+  style_content: &String,
+  template_content: &String,
+  post_template_content: Option<&String>,
+  with_frontmatter: bool,
+  blog_posts_vector: Option<Vec<Vec<String>>>,
+) -> Vec<Vec<String>> {
+  let mut blog_posts = Vec::new();
   for entry in paths {
-    let entry = entry.unwrap();
+    let opts: Opts = Opts::parse();
     let file_path = entry.path();
-    let file_name = file_path.file_stem().unwrap().to_string_lossy();
-    let md_content =
-    fs::read_to_string(&file_path).expect("Something went wrong reading an input file");
-    if args.verbose { println!("{} {}", Style::new().bold().paint("Generating HTML file:"), [&file_name,".html"].concat()) }
-    // Comrak is our Markdown parser
-    let options = ComrakOptions {
-      ext_autolink: true,
-      unsafe_: true,
-      ..ComrakOptions::default()
-    };
-    let rendered_content = markdown_to_html(&md_content, &options);
-    let mut result = str::replace(&template_content, "{{content}}", &rendered_content);
-    if with_style {
-      if args.verbose { println!("{}", Style::new().bold().paint("    Including CSS")) }
-      result = str::replace(&result, "{{style}}", &style_content);
+    let mut file_name = file_path.file_stem().unwrap().to_string_lossy().to_string();
+
+    // Check if the file name is preceeded with a date - we need to chop it off
+    let re = Regex::new("^[0-9]{4}-[0-9]{2}-[0-9]{2}").unwrap();
+    let matches = re.is_match(&file_name);
+    if matches {
+      let (_date, title) = file_name.split_at(11);
+      file_name = title.to_string();
     }
-    if args.minify {
-      if args.verbose { println!("{}", Style::new().bold().paint("    Minifying")) }
+
+    // Begin reading the file
+    let file_content =
+      fs::read_to_string(&file_path).expect("Something went wrong reading an input file");
+    if opts.verbose {
+      println!(
+        "{} {}",
+        Style::new().bold().paint("Generating HTML file:"),
+        [&file_name, ".html"].concat()
+      )
+    }
+    // let rendered_content;
+    let mut result = String::new();
+    // If we're using frontmatter, we need to extract the frontmatter here and incorporate it into our post template
+    if with_frontmatter {
+      let parse_result = parse_and_find_content(&file_content);
+      let (front_matter, md_content) = parse_result.unwrap();
+      let front_matter = front_matter.unwrap();
+      let rendered_content = &parse_markdown(md_content);
+      let title = &front_matter["title"].as_str().unwrap();
+      let date = &front_matter["date"].as_str().unwrap();
+      // Fill the post template with the post content and frontmatter
+      if let Some(post_template_content) = post_template_content {
+        let post_in_template = post_template_content
+          .replace("{{title}}", title)
+          .replace("{{date}}", date)
+          .replace("{{content}}", rendered_content);
+        // Then fill the page template with the rendered post
+        result = template_content.replace("{{content}}", &post_in_template);
+        let dir_name = opts
+          .blog_dir
+          .unwrap()
+          .split('/')
+          .last()
+          .unwrap()
+          .to_string();
+        let blog_post = vec![
+          dir_name,
+          file_name.to_string(),
+          title.to_string(),
+          date.to_string(),
+        ];
+        blog_posts.push(blog_post);
+      }
+    } else {
+      let rendered_content = parse_markdown(&file_content);
+      result = template_content.replace("{{content}}", &rendered_content);
+    }
+
+    if with_style {
+      if opts.verbose {
+        println!("{}", Style::new().bold().paint("    Including CSS"))
+      }
+      result = result.replace("{{style}}", style_content);
+    }
+
+    if opts.minify {
+      if opts.verbose {
+        println!("{}", Style::new().bold().paint("    Minifying"))
+      }
       let mut html_minifier = HTMLMinifier::new();
       html_minifier.digest(result).unwrap();
       result = html_minifier.get_html();
@@ -76,17 +168,148 @@ fn main() {
     // Create the initial output filename
     let mut output_filename: String = [output_directory, "/", &file_name, ".html"].concat();
     // If we're creating a directory per file, change the output filename and create the directory
-    if file_name != "index" && args.directory_per_page {
-      if args.verbose { println!("{}", Style::new().bold().paint("    Creating page directory")) }
-      let subfolder_path: String = [output_directory, "/", &file_name].concat();
-      if !path::Path::new(&subfolder_path).exists() {
-        fs::create_dir(&subfolder_path).unwrap();
+    if file_name != "index" && opts.directory_per_page {
+      if opts.verbose {
+        println!(
+          "{}",
+          Style::new().bold().paint("    Creating page directory")
+        )
       }
+      let subfolder_path: String = [output_directory, "/", &file_name].concat();
+      fs::create_dir(&subfolder_path).unwrap();
       output_filename = [&subfolder_path, "/index.html"].concat();
     }
-    fs::write(&output_filename, result).expect("Unable to write file");
-    if args.verbose { println!("{}", Style::new().bold().paint("    Writing file")) }
+    // Generate a list of blog posts, if we're building a blog
+    if let Some(blog_posts_vector) = &blog_posts_vector {
+      if result.contains("{{post_list}}") {
+        let mut html = "".to_string();
+        for x in blog_posts_vector.iter() {
+          let line = [
+            "<div><p><a href='/",
+            &x[0],
+            "/",
+            &x[1],
+            "'>",
+            &x[2],
+            "</a></p><p>",
+            &x[3],
+            "</p></div>",
+          ]
+          .concat();
+          html.push_str(&line);
+        }
+        result = result.replace("{{post_list}}", &html);
+      }
+    }
+
+    fs::write(&output_filename, result).expect("Something went wrong saving a generated file");
+    if opts.verbose {
+      println!("{}", Style::new().bold().paint("    Writing file"))
+    }
+  }
+  return blog_posts;
+}
+
+fn main() {
+  // Start operation timer
+  let operation_timer = Instant::now();
+  // Fetch comand line arguments from Clap.
+  let opts: Opts = Opts::parse();
+
+  // Base variables
+  let output_directory = &opts.output_dir;
+  let input_paths: Vec<_> = fs::read_dir(opts.input_dir)
+    .unwrap()
+    .map(|r| r.unwrap())
+    .collect();
+
+  // Base HTML template
+  let template_content =
+    fs::read_to_string(opts.template_file).expect("Something went wrong reading the template file");
+
+  // Style generation
+  let mut with_style = false;
+  let mut style_content: String = "".to_string();
+  if let Some(style_file) = opts.style_file {
+    style_content =
+      fs::read_to_string(style_file).expect("Something went wrong reading the CSS file");
+    with_style = true;
   }
 
-  if args.verbose { println!("{} {}{}", Style::new().bold().paint("Done in"), operation_timer.elapsed().as_millis(), "ms") }
+  // Recreate the build directory first
+  if opts.verbose {
+    println!(
+      "{} {}",
+      Style::new().bold().paint("Recreating build directory:"),
+      &output_directory
+    )
+  }
+  fs::remove_dir_all(&output_directory).unwrap();
+  fs::create_dir(&output_directory).unwrap();
+
+  // Copy the assets dir over, if we're using one
+  if let Some(assets_dir) = opts.assets_dir {
+    let dir_name: String = assets_dir.split('/').last().unwrap().to_string();
+    // From src/foo to build/foo
+    let dest_path = [&output_directory, "/", &dir_name].concat();
+    if opts.verbose {
+      println!(
+        "{} {} > {}",
+        Style::new().bold().paint("Copying assets directory:"),
+        &assets_dir,
+        &dest_path
+      )
+    }
+    copy_dir(&assets_dir, &dest_path).unwrap();
+  }
+
+  // Optional blog post generation
+  // If the blog posts directory is set...
+  let mut blog_posts = Vec::new();
+  if let Some(blog_dir) = opts.blog_dir {
+    let mut blog_input_paths: Vec<_> = fs::read_dir(&blog_dir)
+      .unwrap()
+      .map(|r| r.unwrap())
+      .collect();
+    blog_input_paths.sort_by_key(|dir| Reverse(dir.path()));
+    let post_template_content;
+    let dir_name = blog_dir.split('/').last().unwrap().to_string();
+    let dest_path = [&output_directory, "/", &dir_name].concat();
+    // If the blog template file is set...
+    if let Some(post_template_file) = opts.post_template_file {
+      post_template_content = fs::read_to_string(post_template_file)
+        .expect("Something went wrong reading the post template file");
+      // Create the blog posts directory
+      fs::create_dir(&dest_path).unwrap();
+      blog_posts = generate_html(
+        blog_input_paths,
+        &dest_path,
+        with_style,
+        &style_content,
+        &template_content,
+        Some(&post_template_content),
+        true,
+        None,
+      );
+    }
+  }
+
+  // Loop through the top level of our input directory.
+  generate_html(
+    input_paths,
+    output_directory,
+    with_style,
+    &style_content,
+    &template_content,
+    None,
+    false,
+    Some(blog_posts),
+  );
+
+  println!(
+    "{} {}{}",
+    Style::new().bold().paint("Done in"),
+    operation_timer.elapsed().as_millis(),
+    "ms"
+  )
 }
