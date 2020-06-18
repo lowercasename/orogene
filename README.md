@@ -54,15 +54,15 @@ Orogene needs a couple of things to be set up just the way it likes.
    orogene -mdv -i ./src/pages -o ./build -t ./src/template.html -s ./src/style.css -a ./src/assets
    ```
 5. This will create the following website in a directory called `build`:
-  ```
-  build
-  ├── assets
-  │   ├── image.jpg
-  │   ├── file.pdf
-  │   └── meme.gif
-  ├── index.html
-  ├── page1
-  │   └── index.html
-  └── page2
-      └── index.html
-  ```
+    ```
+    build
+    ├── assets
+    │   ├── image.jpg
+    │   ├── file.pdf
+    │   └── meme.gif
+    ├── index.html
+    ├── page1
+    │   └── index.html
+    └── page2
+        └── index.html
+    ```
