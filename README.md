@@ -71,8 +71,17 @@ Orogene needs a couple of things to be set up just the way it likes.
     │   ├── image.jpg
     │   ├── file.pdf
     │   └── meme.gif
+    ├── blog
+    │   ├── a-blog-post
+    │   │   └── index.html
+    │   ├── another-blog-post
+    │   │   └── index.html
+    │   └── a-third-blog-post
+    │       └── index.html
     ├── index.html
     ├── page1
+    │   └── index.html
+    ├── page2
     │   └── index.html
     └── page2
         └── index.html
