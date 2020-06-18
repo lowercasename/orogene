@@ -1,6 +1,7 @@
-"filename", "language", "TOML", "Rust", "Markdown", "comment", "blank", "total"
+"filename", "language", "TOML", "Markdown", "Rust", "comment", "blank", "total"
 "/home/raphael/dev/orogene/Cargo.toml", "TOML", 14, 0, 0, 1, 2, 17
-"/home/raphael/dev/orogene/LICENSE.md", "Markdown", 0, 0, 485, 0, 111, 596
-"/home/raphael/dev/orogene/README.md", "Markdown", 0, 0, 62, 0, 10, 72
-"/home/raphael/dev/orogene/src/main.rs", "Rust", 0, 224, 0, 36, 18, 278
-"Total", "-", 14, 224, 547, 37, 141, 963
+"/home/raphael/dev/orogene/LICENSE.md", "Markdown", 0, 485, 0, 0, 111, 596
+"/home/raphael/dev/orogene/README.md", "Markdown", 0, 83, 0, 0, 13, 96
+"/home/raphael/dev/orogene/rustfmt.toml", "TOML", 4, 0, 0, 0, 0, 4
+"/home/raphael/dev/orogene/src/main.rs", "Rust", 0, 0, 219, 24, 18, 261
+"Total", "-", 18, 568, 219, 25, 144, 974

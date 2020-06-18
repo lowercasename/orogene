@@ -1,4 +1,5 @@
 use ansi_term::Style;
+use chrono::{DateTime, NaiveDate};
 use clap::Clap;
 use comrak::{markdown_to_html, ComrakOptions};
 use copy_dir::copy_dir;
@@ -20,23 +21,11 @@ use std::time::Instant;
 struct Opts {
   #[clap(short, long, about = "The directory containing your source files.")]
   input_dir: String,
-  #[clap(
-    short,
-    long,
-    about = "The directory where your site will be generated."
-  )]
+  #[clap(short, long, about = "The directory where your site will be generated.")]
   output_dir: String,
-  #[clap(
-    short,
-    long,
-    about = "The HTML template file with which to build your pages."
-  )]
+  #[clap(short, long, about = "The HTML template file with which to build your pages.")]
   template_file: String,
-  #[clap(
-    short,
-    long,
-    about = "The directory containing your blog posts (optional)."
-  )]
+  #[clap(short, long, about = "The directory containing your blog posts (optional).")]
   blog_dir: Option<String>,
   #[clap(
     short,
@@ -44,23 +33,11 @@ struct Opts {
     about = "The HTML template file with which to build your posts (optional; required if --posts-dir is set)."
   )]
   post_template_file: Option<String>,
-  #[clap(
-    short,
-    long,
-    about = "The CSS file to attach to your pages (optional)."
-  )]
+  #[clap(short, long, about = "The CSS file to attach to your pages (optional).")]
   style_file: Option<String>,
-  #[clap(
-    short,
-    long,
-    about = "The directory where your static assets are located (optional)."
-  )]
+  #[clap(short, long, about = "The directory where your static assets are located (optional).")]
   assets_dir: Option<String>,
-  #[clap(
-    short,
-    long,
-    about = "Create a separate directory for each output file."
-  )]
+  #[clap(short, long, about = "Create a separate directory for each output file.")]
   directory_per_page: bool,
   #[clap(short, long, about = "Minify the output files.")]
   minify: bool,
@@ -79,13 +56,8 @@ fn parse_markdown(md_content: &str) -> String {
 }
 
 fn generate_html(
-  paths: Vec<std::fs::DirEntry>,
-  output_directory: &str,
-  with_style: bool,
-  style_content: &String,
-  template_content: &String,
-  post_template_content: Option<&String>,
-  with_frontmatter: bool,
+  paths: Vec<std::fs::DirEntry>, output_directory: &str, with_style: bool, style_content: &String,
+  template_content: &String, post_template_content: Option<&String>, with_frontmatter: bool,
   blog_posts_vector: Option<Vec<Vec<String>>>,
 ) -> Vec<Vec<String>> {
   let mut blog_posts = Vec::new();
@@ -130,19 +102,8 @@ fn generate_html(
           .replace("{{content}}", rendered_content);
         // Then fill the page template with the rendered post
         result = template_content.replace("{{content}}", &post_in_template);
-        let dir_name = opts
-          .blog_dir
-          .unwrap()
-          .split('/')
-          .last()
-          .unwrap()
-          .to_string();
-        let blog_post = vec![
-          dir_name,
-          file_name.to_string(),
-          title.to_string(),
-          date.to_string(),
-        ];
+        let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
+        let blog_post = vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
         blog_posts.push(blog_post);
       }
     } else {
@@ -170,10 +131,7 @@ fn generate_html(
     // If we're creating a directory per file, change the output filename and create the directory
     if file_name != "index" && opts.directory_per_page {
       if opts.verbose {
-        println!(
-          "{}",
-          Style::new().bold().paint("    Creating page directory")
-        )
+        println!("{}", Style::new().bold().paint("    Creating page directory"))
       }
       let subfolder_path: String = [output_directory, "/", &file_name].concat();
       fs::create_dir(&subfolder_path).unwrap();
@@ -184,18 +142,14 @@ fn generate_html(
       if result.contains("{{post_list}}") {
         let mut html = "".to_string();
         for x in blog_posts_vector.iter() {
-          let line = [
-            "<article class='post-link'><a href='/",
-            &x[0],
-            "/",
-            &x[1],
-            "'>",
-            &x[2],
-            "</a></p><p>",
-            &x[3],
-            "</p></article>",
-          ]
-          .concat();
+          let line = format!(
+                      "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
+                      &x[0], // Blog directory
+                      &x[1], // Blog post filename
+                      &x[2], // Blog post title
+                      &x[3], // Blog post date
+                      &x[3], // Blog post date
+                    );
           html.push_str(&line);
         }
         result = result.replace("{{post_list}}", &html);
@@ -218,10 +172,7 @@ fn main() {
 
   // Base variables
   let output_directory = &opts.output_dir;
-  let input_paths: Vec<_> = fs::read_dir(opts.input_dir)
-    .unwrap()
-    .map(|r| r.unwrap())
-    .collect();
+  let input_paths: Vec<_> = fs::read_dir(opts.input_dir).unwrap().map(|r| r.unwrap()).collect();
 
   // Base HTML template
   let template_content =
@@ -238,11 +189,7 @@ fn main() {
 
   // Recreate the build directory first
   if opts.verbose {
-    println!(
-      "{} {}",
-      Style::new().bold().paint("Recreating build directory:"),
-      &output_directory
-    )
+    println!("{} {}", Style::new().bold().paint("Recreating build directory:"), &output_directory)
   }
   fs::remove_dir_all(&output_directory).unwrap();
   fs::create_dir(&output_directory).unwrap();
@@ -267,10 +214,8 @@ fn main() {
   // If the blog posts directory is set...
   let mut blog_posts = Vec::new();
   if let Some(blog_dir) = opts.blog_dir {
-    let mut blog_input_paths: Vec<_> = fs::read_dir(&blog_dir)
-      .unwrap()
-      .map(|r| r.unwrap())
-      .collect();
+    let mut blog_input_paths: Vec<_> =
+      fs::read_dir(&blog_dir).unwrap().map(|r| r.unwrap()).collect();
     blog_input_paths.sort_by_key(|dir| Reverse(dir.path()));
     let post_template_content;
     let dir_name = blog_dir.split('/').last().unwrap().to_string();

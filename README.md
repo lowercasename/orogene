@@ -15,7 +15,7 @@ Given a source directory and the appropriate command line parameters, Orogene ca
 The benefits of Orogene are:
 
 - It's fast. Like, _really_ fast.
-- It's tiny. Like, _really_ tiny (~250 lines of generously formatted code, excluding comments and whitespace).
+- It's tiny. Like, _really_ tiny (~220 lines of code, excluding comments and whitespace).
 - As a command line utility, it's completely customizable on the fly and can therefore be built into other scripts.
 - It's named after a group of characters in a phenomenally good series of fantasy novels by [N. K. Jemisin](https://en.wikipedia.org/wiki/N._K._Jemisin).
 

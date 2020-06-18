@@ -1,0 +1,4 @@
+edition = "2018"
+fn_args_layout = "Compressed"
+use_small_heuristics = "Off"
+tab_spaces = 2

@@ -1,24 +1,24 @@
 # Summary
 
-Date : 2020-06-18 16:38:52
+Date : 2020-06-18 20:34:40
 
 Directory /home/raphael/dev/orogene
 
-Total : 4 files,  785 codes, 37 comments, 141 blanks, all 963 lines
+Total : 5 files,  805 codes, 25 comments, 144 blanks, all 974 lines
 
 [details](details.md)
 
 ## Languages
 | language | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| Markdown | 2 | 547 | 0 | 121 | 668 |
-| Rust | 1 | 224 | 36 | 18 | 278 |
-| TOML | 1 | 14 | 1 | 2 | 17 |
+| Markdown | 2 | 568 | 0 | 124 | 692 |
+| Rust | 1 | 219 | 24 | 18 | 261 |
+| TOML | 2 | 18 | 1 | 2 | 21 |
 
 ## Directories
 | path | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| . | 4 | 785 | 37 | 141 | 963 |
-| src | 1 | 224 | 36 | 18 | 278 |
+| . | 5 | 805 | 25 | 144 | 974 |
+| src | 1 | 219 | 24 | 18 | 261 |
 
 [details](details.md)
