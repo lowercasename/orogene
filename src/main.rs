@@ -65,103 +65,107 @@ fn generate_html(
   for entry in paths {
     let opts: Opts = Opts::parse();
     let file_path = entry.path();
-    let mut file_name = file_path.file_stem().unwrap().to_string_lossy().to_string();
+    let file_extension = file_path.extension().unwrap().to_string_lossy();
+    // Only read .md and .txt files, ignore everything else
+    if file_extension == "md" || file_extension == "txt" {
+      let mut file_name = file_path.file_stem().unwrap().to_string_lossy().to_string();
 
-    // Check if the file name is preceeded with a date - we need to chop it off
-    let re = Regex::new("^[0-9]{4}-[0-9]{2}-[0-9]{2}").unwrap();
-    let matches = re.is_match(&file_name);
-    if matches {
-      let (_date, title) = file_name.split_at(11);
-      file_name = title.to_string();
-    }
-
-    // Begin reading the file
-    let file_content =
-      fs::read_to_string(&file_path).expect("Something went wrong reading an input file");
-    if opts.verbose {
-      println!(
-        "{} {}",
-        Style::new().bold().paint("Generating HTML file:"),
-        [&file_name, ".html"].concat()
-      )
-    }
-    // let rendered_content;
-    let mut result = String::new();
-    // If we're using frontmatter, we need to extract the frontmatter here and incorporate it into our post template
-    if with_frontmatter {
-      let parse_result = parse_and_find_content(&file_content);
-      let (front_matter, md_content) = parse_result.unwrap();
-      let front_matter = front_matter.unwrap();
-      let rendered_content = &parse_markdown(md_content);
-      let title = &front_matter["title"].as_str().unwrap();
-      let date = &front_matter["date"].as_str().unwrap();
-      let formatted_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
-      // Fill the post template with the post content and frontmatter
-      if let Some(post_template_content) = post_template_content {
-        let post_in_template = post_template_content
-          .replace("{{title}}", title)
-          .replace("{{date}}", &formatted_date)
-          .replace("{{content}}", rendered_content);
-        // Then fill the page template with the rendered post
-        result = template_content.replace("{{content}}", &post_in_template);
-        let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
-        let blog_post = vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
-        blog_posts.push(blog_post);
+      // Check if the file name is preceeded with a date - we need to chop it off
+      let re = Regex::new("^[0-9]{4}-[0-9]{2}-[0-9]{2}").unwrap();
+      let matches = re.is_match(&file_name);
+      if matches {
+        let (_date, title) = file_name.split_at(11);
+        file_name = title.to_string();
       }
-    } else {
-      let rendered_content = parse_markdown(&file_content);
-      result = template_content.replace("{{content}}", &rendered_content);
-    }
-
-    if with_style {
+  
+      // Begin reading the file
+      let file_content =
+        fs::read_to_string(&file_path).expect("Something went wrong reading an input file");
       if opts.verbose {
-        println!("{}", Style::new().bold().paint("    Including CSS"))
+        println!(
+          "{} {}",
+          Style::new().bold().paint("Generating HTML file:"),
+          [&file_name, ".html"].concat()
+        )
       }
-      result = result.replace("{{style}}", style_content);
-    }
-
-    if opts.minify {
-      if opts.verbose {
-        println!("{}", Style::new().bold().paint("    Minifying"))
-      }
-      let mut html_minifier = HTMLMinifier::new();
-      html_minifier.digest(result).unwrap();
-      result = html_minifier.get_html();
-    }
-    // Create the initial output filename
-    let mut output_filename: String = [output_directory, "/", &file_name, ".html"].concat();
-    // If we're creating a directory per file, change the output filename and create the directory
-    if file_name != "index" && opts.directory_per_page {
-      if opts.verbose {
-        println!("{}", Style::new().bold().paint("    Creating page directory"))
-      }
-      let subfolder_path: String = [output_directory, "/", &file_name].concat();
-      fs::create_dir(&subfolder_path).unwrap();
-      output_filename = [&subfolder_path, "/index.html"].concat();
-    }
-    // Generate a list of blog posts, if we're building a blog
-    if let Some(blog_posts_vector) = &blog_posts_vector {
-      if result.contains("{{post_list}}") {
-        let mut html = "".to_string();
-        for x in blog_posts_vector.iter() {
-          let formatted_date = NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y");
-          let line = format!(
-                      "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
-                      &x[0], // Blog directory
-                      &x[1], // Blog post filename
-                      &x[2], // Blog post title
-                      &x[3], // Blog post date (HTML5 datetime value)
-                      formatted_date, // Blog post date (formatted)
-                    );
-          html.push_str(&line);
+      // let rendered_content;
+      let mut result = String::new();
+      // If we're using frontmatter, we need to extract the frontmatter here and incorporate it into our post template
+      if with_frontmatter {
+        let parse_result = parse_and_find_content(&file_content);
+        let (front_matter, md_content) = parse_result.unwrap();
+        let front_matter = front_matter.unwrap();
+        let rendered_content = &parse_markdown(md_content);
+        let title = &front_matter["title"].as_str().unwrap();
+        let date = &front_matter["date"].as_str().unwrap();
+        let formatted_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
+        // Fill the post template with the post content and frontmatter
+        if let Some(post_template_content) = post_template_content {
+          let post_in_template = post_template_content
+            .replace("{{title}}", title)
+            .replace("{{date}}", &formatted_date)
+            .replace("{{content}}", rendered_content);
+          // Then fill the page template with the rendered post
+          result = template_content.replace("{{content}}", &post_in_template);
+          let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
+          let blog_post = vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
+          blog_posts.push(blog_post);
         }
-        result = result.replace("{{post_list}}", &html);
+      } else {
+        let rendered_content = parse_markdown(&file_content);
+        result = template_content.replace("{{content}}", &rendered_content);
       }
-    }
-
-    fs::write(&output_filename, result).expect("Something went wrong saving a generated file");
-    if opts.verbose {
-      println!("{}", Style::new().bold().paint("    Writing file"))
+  
+      if with_style {
+        if opts.verbose {
+          println!("{}", Style::new().bold().paint("    Including CSS"))
+        }
+        result = result.replace("{{style}}", style_content);
+      }
+  
+      if opts.minify {
+        if opts.verbose {
+          println!("{}", Style::new().bold().paint("    Minifying"))
+        }
+        let mut html_minifier = HTMLMinifier::new();
+        html_minifier.digest(result).unwrap();
+        result = html_minifier.get_html();
+      }
+      // Create the initial output filename
+      let mut output_filename: String = [output_directory, "/", &file_name, ".html"].concat();
+      // If we're creating a directory per file, change the output filename and create the directory
+      if file_name != "index" && opts.directory_per_page {
+        if opts.verbose {
+          println!("{}", Style::new().bold().paint("    Creating page directory"))
+        }
+        let subfolder_path: String = [output_directory, "/", &file_name].concat();
+        fs::create_dir(&subfolder_path).unwrap();
+        output_filename = [&subfolder_path, "/index.html"].concat();
+      }
+      // Generate a list of blog posts, if we're building a blog
+      if let Some(blog_posts_vector) = &blog_posts_vector {
+        if result.contains("{{post_list}}") {
+          let mut html = "".to_string();
+          for x in blog_posts_vector.iter() {
+            let formatted_date = NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y");
+            let line = format!(
+                        "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
+                        &x[0], // Blog directory
+                        &x[1], // Blog post filename
+                        &x[2], // Blog post title
+                        &x[3], // Blog post date (HTML5 datetime value)
+                        formatted_date, // Blog post date (formatted)
+                      );
+            html.push_str(&line);
+          }
+          result = result.replace("{{post_list}}", &html);
+        }
+      }
+  
+      fs::write(&output_filename, result).expect("Something went wrong saving a generated file");
+      if opts.verbose {
+        println!("{}", Style::new().bold().paint("    Writing file"))
+      }
     }
   }
   return blog_posts;
