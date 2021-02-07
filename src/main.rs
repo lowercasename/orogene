@@ -1,5 +1,5 @@
 use ansi_term::Style;
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 use clap::Clap;
 use comrak::{markdown_to_html, ComrakOptions};
 use copy_dir::copy_dir;
@@ -77,7 +77,6 @@ fn generate_html(
         let (_date, title) = file_name.split_at(11);
         file_name = title.to_string();
       }
-  
       // Begin reading the file
       let file_content =
         fs::read_to_string(&file_path).expect("Something went wrong reading an input file");
@@ -98,7 +97,8 @@ fn generate_html(
         let rendered_content = &parse_markdown(md_content);
         let title = &front_matter["title"].as_str().unwrap();
         let date = &front_matter["date"].as_str().unwrap();
-        let formatted_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
+        let formatted_date =
+          NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
         // Fill the post template with the post content and frontmatter
         if let Some(post_template_content) = post_template_content {
           let post_in_template = post_template_content
@@ -108,21 +108,20 @@ fn generate_html(
           // Then fill the page template with the rendered post
           result = template_content.replace("{{content}}", &post_in_template);
           let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
-          let blog_post = vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
+          let blog_post =
+            vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
           blog_posts.push(blog_post);
         }
       } else {
         let rendered_content = parse_markdown(&file_content);
         result = template_content.replace("{{content}}", &rendered_content);
       }
-  
       if with_style {
         if opts.verbose {
           println!("{}", Style::new().bold().paint("    Including CSS"))
         }
         result = result.replace("{{style}}", style_content);
       }
-  
       if opts.minify {
         if opts.verbose {
           println!("{}", Style::new().bold().paint("    Minifying"))
@@ -139,7 +138,15 @@ fn generate_html(
           println!("{}", Style::new().bold().paint("    Creating page directory"))
         }
         let subfolder_path: String = [output_directory, "/", &file_name].concat();
-        fs::create_dir(&subfolder_path).unwrap();
+
+        // In some cases, in directory-per-page mode, we have a page with the name 'blog' or 'posts',
+        // and our blog posts directory is also called 'blog' or 'posts'. In this case, instead of
+        // creating a new subfolder, we just put the index.html file in the already existent directory.
+        let opts: Opts = Opts::parse();
+        let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
+        if file_name != dir_name {
+          fs::create_dir(&subfolder_path).unwrap();
+        }
         output_filename = [&subfolder_path, "/index.html"].concat();
       }
       // Generate a list of blog posts, if we're building a blog
@@ -147,7 +154,8 @@ fn generate_html(
         if result.contains("{{post_list}}") {
           let mut html = "".to_string();
           for x in blog_posts_vector.iter() {
-            let formatted_date = NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y");
+            let formatted_date =
+              NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y");
             let line = format!(
                         "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
                         &x[0], // Blog directory
@@ -161,7 +169,6 @@ fn generate_html(
           result = result.replace("{{post_list}}", &html);
         }
       }
-  
       fs::write(&output_filename, result).expect("Something went wrong saving a generated file");
       if opts.verbose {
         println!("{}", Style::new().bold().paint("    Writing file"))
@@ -198,7 +205,11 @@ fn main() {
   if opts.verbose {
     println!("{} {}", Style::new().bold().paint("Recreating build directory:"), &output_directory)
   }
-  fs::remove_dir_all(&output_directory).unwrap();
+
+  // Only delete the build directory if it exists
+  if fs::metadata(&output_directory).is_ok() {
+    fs::remove_dir_all(&output_directory).unwrap();
+  }
   fs::create_dir(&output_directory).unwrap();
 
   // Copy the assets dir over, if we're using one
