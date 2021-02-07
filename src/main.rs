@@ -14,7 +14,7 @@ use std::time::Instant;
 #[derive(Clap)]
 #[clap(
   name = "Orogene",
-  version = "0.1.0",
+  version = "0.1.1",
   author = "Raphael Kabo <raphaelkabo@gmail.com>",
   about = "A simple static site generator."
 )]
