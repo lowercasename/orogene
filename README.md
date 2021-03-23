@@ -15,7 +15,7 @@ Given a source directory and the appropriate command line parameters, Orogene ca
 The benefits of Orogene are:
 
 - It's fast. Like, _really_ fast.
-- It's tiny. Like, _really_ tiny (~220 lines of code, excluding comments and whitespace).
+- It's tiny. Like, _really_ tiny (~260 lines of code, excluding comments and whitespace).
 - As a command line utility, it's completely customizable on the fly and can therefore be built into other scripts.
 - It's named after a group of characters in a phenomenally good series of fantasy novels by [N. K. Jemisin](https://en.wikipedia.org/wiki/N._K._Jemisin).
 
@@ -43,6 +43,7 @@ Orogene needs a couple of things to be set up just the way it likes.
     │   ├── file.pdf
     │   └── meme.gif
     ├── pages
+    │   ├── blog.md
     │   ├── index.md
     │   ├── page1.md
     │   └── poetry.md
@@ -51,11 +52,15 @@ Orogene needs a couple of things to be set up just the way it likes.
     │   ├── 2019-10-09-another-blog-post.md
     │   └── 2020-05-05-a-third-blog-post.md
     ├── style.css
+    ├── list_template.html
     ├── post_template.html
     └── template.html
    ```
    Your `template.html` file should be a complete HTML file containing, in a single location, the string `{{content}}`, which will be replaced with your page content during generation, and optionally the string `{{style}}`, which can be replaced with the contents of a CSS file.
-   If you're using the optional blog generator function, your `post_template.html` file should be a HTML file containing the strings `{{title}}`, `{{date}}`, and `{{content}}`, which will be replaced, respectively, with the `title` and `date` fields from the YAML front matter of each post, and the Markdown content of that post. This rendered file will in turn be included in the top-level `template.html` file, so you only need to write your top-level HTML once. You should also include the string `{[post_list}}` in one of your Markdown pages - Orogene will dump an HTML list of posts into this field.
+   If you're using the optional blog generator function:
+      - Your `post_template.html` file should be an HTML file containing the strings `{{title}}`, `{{date}}`, and `{{content}}`, which will be replaced, respectively, with the `title` and `date` fields from the YAML front matter of each post, and the Markdown content of that post. This rendered file will in turn be included in the top-level `template.html` file, so you only need to write your top-level HTML once.
+      - Your `archive_template.html` file should be an HTML file containing the strings `{{link}}` and `{{date}}`. For each post in your list of posts, these tags will be replaced, respectively, with an `<a>` to the post and its front matter `date` field.
+      - You should also include the string `{{post_list}}` in one of your Markdown pages - Orogene will dump the generated HTML list of posts into this field.
 4. Run Orogene. For the directory structure above, something like the following will do the trick:
    ```
    orogene --minify --directory-per-page --verbose --input-dir ./src/pages --output-dir ./build --template-file ./src/template.html --style-file ./src/style.css --assets-dir ./src/assets --blog-dir ./src/blog --post-template-file ./src/post_template.html
