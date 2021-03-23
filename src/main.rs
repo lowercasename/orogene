@@ -14,7 +14,7 @@ use std::time::Instant;
 #[derive(Clap)]
 #[clap(
   name = "Orogene",
-  version = "0.1.1",
+  version = "0.2.0",
   author = "Raphael Kabo <raphaelkabo@gmail.com>",
   about = "A simple static site generator."
 )]
@@ -30,9 +30,15 @@ struct Opts {
   #[clap(
     short,
     long,
-    about = "The HTML template file with which to build your posts (optional; required if --posts-dir is set)."
+    about = "The HTML template file with which to build your posts (optional; required if --blog-dir is set)."
   )]
   post_template_file: Option<String>,
+  #[clap(
+    short,
+    long,
+    about = "The HTML template file with which to build your post list entries (optional)."
+  )]
+  list_template_file: Option<String>,
   #[clap(short, long, about = "The CSS file to attach to your pages (optional).")]
   style_file: Option<String>,
   #[clap(short, long, about = "The directory where your static assets are located (optional).")]
@@ -58,7 +64,8 @@ fn parse_markdown(md_content: &str) -> String {
 
 fn generate_html(
   paths: Vec<std::fs::DirEntry>, output_directory: &str, with_style: bool, style_content: &String,
-  template_content: &String, post_template_content: Option<&String>, with_frontmatter: bool,
+  template_content: &String, post_template_content: Option<&String>,
+  list_template_content: Option<&String>, with_frontmatter: bool,
   blog_posts_vector: Option<Vec<Vec<String>>>,
 ) -> Vec<Vec<String>> {
   let mut blog_posts = Vec::new();
@@ -155,16 +162,31 @@ fn generate_html(
           let mut html = "".to_string();
           for x in blog_posts_vector.iter() {
             let formatted_date =
-              NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y");
-            let line = format!(
-                        "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
-                        &x[0], // Blog directory
-                        &x[1], // Blog post filename
-                        &x[2], // Blog post title
-                        &x[3], // Blog post date (HTML5 datetime value)
-                        formatted_date, // Blog post date (formatted)
-                      );
-            html.push_str(&line);
+              NaiveDate::parse_from_str(&x[3], "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
+            // let archive_line = "".to_string();
+            // Fill the post list template with each post's metadata and title
+            if let Some(list_template_content) = list_template_content {
+              if list_template_content != "" {
+                let archive_line = list_template_content
+                  .replace("{{url}}", &format!("/{}/{}", &x[0], &x[1]))
+                  .replace("{{link}}", &format!("<a href='/{}/{}'>{{{{title}}}}</a>", &x[0], &x[1]))
+                  .replace("{{title}}", &x[2])
+                  .replace("{{date}}", &format!("<time datetime='{}'>{}</time>", &x[3], formatted_date));
+                html.push_str(&archive_line);
+              }
+              // Fall back to a default template otherwise
+              else {
+                let archive_line = format!(
+                "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
+                &x[0], // Blog directory
+                &x[1], // Blog post filename
+                &x[2], // Blog post title
+                &x[3], // Blog post date (HTML5 datetime value)
+                formatted_date, // Blog post date (formatted)
+              );
+                html.push_str(&archive_line);
+              }
+            }
           }
           result = result.replace("{{post_list}}", &html);
         }
@@ -251,10 +273,20 @@ fn main() {
         &style_content,
         &template_content,
         Some(&post_template_content),
+        None,
         true,
         None,
       );
     }
+  }
+
+  // If we're building a blog, we may have a post list template file,
+  // which we need to pass to this run of generate_html, which builds
+  // our top level pages (the post list lives in one of these).
+  let mut list_template_content: String = "".to_string();
+  if let Some(list_template_file) = opts.list_template_file {
+    list_template_content = fs::read_to_string(list_template_file)
+      .expect("Something went wrong reading the archive template file");
   }
 
   // Loop through the top level of our input directory.
@@ -265,6 +297,7 @@ fn main() {
     &style_content,
     &template_content,
     None,
+    Some(&list_template_content),
     false,
     Some(blog_posts),
   );

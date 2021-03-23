@@ -12,3 +12,6 @@ Cargo.lock
 
 # VS Code
 .VSCodeCounter
+
+# Orogene test directory
+/test/
