@@ -60,14 +60,14 @@ Orogene needs a couple of things to be set up just the way it likes.
    If you're using the optional blog generator function:
       - Your `post_template.html` file should be an HTML file containing the strings `{{title}}`, `{{date}}`, and `{{content}}`, which will be replaced, respectively, with the `title` and `date` fields from the YAML front matter of each post, and the Markdown content of that post. This rendered file will in turn be included in the top-level `template.html` file, so you only need to write your top-level HTML once.
       - Your `list_template.html` file should be an HTML file containing the strings `{{link}}` and `{{date}}`. For each post in your list of posts, these tags will be replaced, respectively, with an `<a>` to the post and its front matter `date` field.
-      - You should also include the string `{{post_list}}` in one of your Markdown pages - Orogene will dump the generated HTML list of posts into this field.
+      - You should also include the string `{{post_list}}` in one of your Markdown pages, for instance `blog.md` - Orogene will dump the generated HTML list of posts into this field.
 4. Run Orogene. For the directory structure above, something like the following will do the trick:
    ```
-   orogene --minify --directory-per-page --verbose --input-dir ./src/pages --output-dir ./build --template-file ./src/template.html --style-file ./src/style.css --assets-dir ./src/assets --blog-dir ./src/blog --post-template-file ./src/post_template.html
+   orogene --minify --directory-per-page --verbose --input-dir ./src/pages --output-dir ./build --template-file ./src/template.html --style-file ./src/style.css --assets-dir ./src/assets --blog-dir ./src/blog --post-template-file ./src/post_template.html --list-template-file ./src/list_template.html
    ```
    You can of course also use short versions of all these flags:
    ```
-   orogene -mdv -i ./src/pages -o ./build -t ./src/template.html -s ./src/style.css -a ./src/assets -b ./src/blog -p ./src/post_template.html
+   orogene -mdv -i ./src/pages -o ./build -t ./src/template.html -s ./src/style.css -a ./src/assets -b ./src/blog -p ./src/post_template.html -l ./src/list_template.html
    ```
 5. This will create the following website in a directory called `build`:
     ```
@@ -77,6 +77,7 @@ Orogene needs a couple of things to be set up just the way it likes.
     │   ├── file.pdf
     │   └── meme.gif
     ├── blog
+    │   ├── index.html
     │   ├── a-blog-post
     │   │   └── index.html
     │   ├── another-blog-post
