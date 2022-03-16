@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 comrak = "0.7.0"
-clap = "3.0.0-beta.1"
+clap = { version = "3.1.6", features = ["derive"] }
 html-minifier = "1.2.1"
 copy_dir = "0.1.2"
 ansi_term = "0.12.1"

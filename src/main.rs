@@ -1,6 +1,6 @@
 use ansi_term::Style;
 use chrono::NaiveDate;
-use clap::Clap;
+use clap::Parser;
 use comrak::{markdown_to_html, ComrakOptions};
 use copy_dir::copy_dir;
 use frontmatter::parse_and_find_content;
@@ -11,43 +11,46 @@ use std::fs;
 use std::time::Instant;
 
 // Build CLI
-#[derive(Clap)]
+#[derive(Parser, Debug)]
 #[clap(
   name = "Orogene",
   version = "0.2.0",
-  author = "Raphael Kabo <raphaelkabo@gmail.com>",
+  author = "Raphael Kabo <mail@raphaelkabo.com>",
   about = "A simple static site generator."
 )]
 struct Opts {
-  #[clap(short, long, about = "The directory containing your source files.")]
+  // The directory containing your source files.
+  #[clap(short, long)]
   input_dir: String,
-  #[clap(short, long, about = "The directory where your site will be generated.")]
+  // The directory where your site will be generated.
+  #[clap(short, long)]
   output_dir: String,
-  #[clap(short, long, about = "The HTML template file with which to build your pages.")]
+  // The HTML template file with which to build your pages.
+  #[clap(short, long)]
   template_file: String,
-  #[clap(short, long, about = "The directory containing your blog posts (optional).")]
+  // The directory containing your blog posts (optional).
+  #[clap(short, long)]
   blog_dir: Option<String>,
-  #[clap(
-    short,
-    long,
-    about = "The HTML template file with which to build your posts (optional; required if --blog-dir is set)."
-  )]
+  // The HTML template file with which to build your posts (optional; required if --blog-dir is set).
+  #[clap(short, long)]
   post_template_file: Option<String>,
-  #[clap(
-    short,
-    long,
-    about = "The HTML template file with which to build your post list entries (optional)."
-  )]
+  // The HTML template file with which to build your post list entries (optional).
+  #[clap(short, long)]
   list_template_file: Option<String>,
-  #[clap(short, long, about = "The CSS file to attach to your pages (optional).")]
+  // The CSS file to attach to your pages (optional).
+  #[clap(short, long)]
   style_file: Option<String>,
-  #[clap(short, long, about = "The directory where your static assets are located (optional).")]
+  // The directory where your static assets are located (optional).
+  #[clap(short, long)]
   assets_dir: Option<String>,
-  #[clap(short, long, about = "Create a separate directory for each output file.")]
+  // Create a separate directory for each output file.
+  #[clap(short, long)]
   directory_per_page: bool,
-  #[clap(short, long, about = "Minify the output files.")]
+  // Minify the output files.
+  #[clap(short, long)]
   minify: bool,
-  #[clap(short, long, about = "Display verbose generation output.")]
+  // Display verbose generation output.
+  #[clap(short, long)]
   verbose: bool,
 }
 
