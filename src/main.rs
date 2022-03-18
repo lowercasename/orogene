@@ -8,13 +8,14 @@ use html_minifier::HTMLMinifier;
 use regex::Regex;
 use std::cmp::Reverse;
 use std::fs;
+use std::io;
 use std::time::Instant;
 
 // Build CLI
 #[derive(Parser, Debug)]
 #[clap(
   name = "Orogene",
-  version = "0.2.0",
+  version = "2.0.0",
   author = "Raphael Kabo <mail@raphaelkabo.com>",
   about = "A simple static site generator."
 )]
@@ -65,103 +66,137 @@ fn parse_markdown(md_content: &str) -> String {
   return markdown_to_html(md_content, &options);
 }
 
+fn compile_html(
+  opts: Opts,
+  input_file: String,
+  template_file: Option<String>,
+  style_file: Option<String>,
+  with_frontmatter: bool,
+) -> Result<String, io::Error> {
+  // Begin reading the file
+  let input_content =
+    fs::read_to_string(input_file).expect("Something went wrong reading an input file");
+  if opts.verbose {
+    println!(
+      "{} {}",
+      Style::new().bold().paint("Generating HTML file:"),
+      [&input_file, ".html"].concat()
+    )
+  }
+
+  let template_content = String::new();
+  if let Some(template_file) = template_file {
+    template_content = fs::read_to_string(template_file)
+      .expect("Something went wrong reading the template file");
+  } else {
+    panic!("No template file specified - could not render HTML.");
+  }
+
+  let mut html = String::new();
+  // If we're using frontmatter, we need to extract the frontmatter here and incorporate it into our post template
+  if with_frontmatter {
+    let (front_matter, md_content) = parse_and_find_content(&input_content).expect("Something went wrong extracting front matter from an input file");
+    let front_matter = front_matter.unwrap();
+    let rendered_content = parse_markdown(md_content);
+    let title = &front_matter["title"].as_str().unwrap();
+    let date = &front_matter["date"].as_str().unwrap();
+    let formatted_date =
+      NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
+    // Fill the post template with the post content and frontmatter
+    let html_in_template = template_content
+      .replace("{{title}}", title)
+      .replace("{{date}}", &formatted_date)
+      .replace("{{content}}", &rendered_content);
+    // Then fill the page template with the rendered post
+    html = template_content.replace("{{content}}", &html_in_template);
+  } else {
+    // We're not using frontmatter, just render the entire file
+    let rendered_content = parse_markdown(&input_content);
+    html = template_content.replace("{{content}}", &rendered_content);
+  }
+  if let Some(style_file) = style_file {
+    let style_content =
+      &fs::read_to_string(style_file).expect("Something went wrong reading the CSS file");
+    if opts.verbose {
+      println!("{}", Style::new().bold().paint("    Including CSS"))
+    }
+    html = html.replace("{{style}}", style_content);
+  }
+  if opts.minify {
+    if opts.verbose {
+      println!("{}", Style::new().bold().paint("    Minifying"))
+    }
+    let mut html_minifier = HTMLMinifier::new();
+    html_minifier.digest(html).expect("Something went wrong minifying HTML");
+    html = html_minifier.get_html();
+  }
+  Ok(html)
+}
+
 fn generate_html(
-  paths: Vec<std::fs::DirEntry>, output_directory: &str, with_style: bool, style_content: &String,
-  template_content: &String, post_template_content: Option<&String>,
-  list_template_content: Option<&String>, with_frontmatter: bool,
-  blog_posts_vector: Option<Vec<Vec<String>>>,
+  paths: Vec<std::fs::DirEntry>,
+  output_directory: &str,
+  template_file: Option<String>,
+  style_file: Option<String>,
+  with_frontmatter: bool,
+
+  // paths: Vec<std::fs::DirEntry>, output_directory: &str, with_style: bool, style_content: &String,
+  // template_content: &String, post_template_content: Option<&String>,
+  // list_template_content: Option<&String>, with_frontmatter: bool,
+  // blog_posts_vector: Option<Vec<Vec<String>>>,
 ) -> Vec<Vec<String>> {
-  let mut blog_posts = Vec::new();
+  // let mut blog_posts = Vec::new();
+  let opts: Opts = Opts::parse();
   for entry in paths {
-    let opts: Opts = Opts::parse();
     let file_path = entry.path();
     let file_extension = file_path.extension().unwrap().to_string_lossy();
     // Only read .md and .txt files, ignore everything else
-    if file_extension == "md" || file_extension == "txt" {
-      let mut file_name = file_path.file_stem().unwrap().to_string_lossy().to_string();
+    if file_extension != "md" && file_extension != "txt" {
+      continue;
+    }
+    let mut file_name = file_path.file_stem().unwrap().to_string_lossy().to_string();
+    let date = String::new();
 
-      // Check if the file name is preceeded with a date - we need to chop it off
-      let re = Regex::new("^[0-9]{4}-[0-9]{2}-[0-9]{2}").unwrap();
-      let matches = re.is_match(&file_name);
-      if matches {
-        let (_date, title) = file_name.split_at(11);
-        file_name = title.to_string();
-      }
-      // Begin reading the file
-      let file_content =
-        fs::read_to_string(&file_path).expect("Something went wrong reading an input file");
+    // Check if the file name is preceeded with a date - we need to chop it off
+    // This is tragically unportable
+    let re = Regex::new("^[0-9]{4}-[0-9]{2}-[0-9]{2}").unwrap();
+    let matches = re.is_match(&file_name);
+    if matches {
+      let (date, title) = file_name.split_at(11);
+      date = date;
+      file_name = title.to_string();
+    }
+      // let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
+      // let blog_post =
+      //   vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
+      // blog_posts.push(blog_post);
+
+    // Create the initial output filename
+    let output_filename: String;
+    let mut output_filename: String = [output_directory, "/", &file_name, ".html"].concat();
+    // If we're creating a directory per file, change the output filename and create the directory
+    if file_name != "index" && opts.directory_per_page {
       if opts.verbose {
-        println!(
-          "{} {}",
-          Style::new().bold().paint("Generating HTML file:"),
-          [&file_name, ".html"].concat()
-        )
+        println!("{}", Style::new().bold().paint("    Creating page directory"))
       }
-      // let rendered_content;
-      let mut result = String::new();
-      // If we're using frontmatter, we need to extract the frontmatter here and incorporate it into our post template
-      if with_frontmatter {
-        let parse_result = parse_and_find_content(&file_content);
-        let (front_matter, md_content) = parse_result.unwrap();
-        let front_matter = front_matter.unwrap();
-        let rendered_content = &parse_markdown(md_content);
-        let title = &front_matter["title"].as_str().unwrap();
-        let date = &front_matter["date"].as_str().unwrap();
-        let formatted_date =
-          NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap().format("%e %h %Y").to_string();
-        // Fill the post template with the post content and frontmatter
-        if let Some(post_template_content) = post_template_content {
-          let post_in_template = post_template_content
-            .replace("{{title}}", title)
-            .replace("{{date}}", &formatted_date)
-            .replace("{{content}}", rendered_content);
-          // Then fill the page template with the rendered post
-          result = template_content.replace("{{content}}", &post_in_template);
-          let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
-          let blog_post =
-            vec![dir_name, file_name.to_string(), title.to_string(), date.to_string()];
-          blog_posts.push(blog_post);
-        }
-      } else {
-        let rendered_content = parse_markdown(&file_content);
-        result = template_content.replace("{{content}}", &rendered_content);
+      let subfolder_path: String = [output_directory, "/", &file_name].concat();
+      // In some cases, in directory-per-page mode, we have a page with the name 'blog' or 'posts',
+      // and our blog posts directory is also called 'blog' or 'posts'. In this case, instead of
+      // creating a new subfolder, we just put the index.html file in the already existent
+      // directory.
+      let blog_dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
+      if file_name != blog_dir_name {
+        fs::create_dir(&subfolder_path).unwrap();
       }
-      if with_style {
-        if opts.verbose {
-          println!("{}", Style::new().bold().paint("    Including CSS"))
-        }
-        result = result.replace("{{style}}", style_content);
-      }
-      if opts.minify {
-        if opts.verbose {
-          println!("{}", Style::new().bold().paint("    Minifying"))
-        }
-        let mut html_minifier = HTMLMinifier::new();
-        html_minifier.digest(result).unwrap();
-        result = html_minifier.get_html();
-      }
-      // Create the initial output filename
-      let mut output_filename: String = [output_directory, "/", &file_name, ".html"].concat();
-      // If we're creating a directory per file, change the output filename and create the directory
-      if file_name != "index" && opts.directory_per_page {
-        if opts.verbose {
-          println!("{}", Style::new().bold().paint("    Creating page directory"))
-        }
-        let subfolder_path: String = [output_directory, "/", &file_name].concat();
+      output_filename = [&subfolder_path, "/index.html"].concat();
+    }
 
-        // In some cases, in directory-per-page mode, we have a page with the name 'blog' or 'posts',
-        // and our blog posts directory is also called 'blog' or 'posts'. In this case, instead of
-        // creating a new subfolder, we just put the index.html file in the already existent directory.
-        let opts: Opts = Opts::parse();
-        let dir_name = opts.blog_dir.unwrap().split('/').last().unwrap().to_string();
-        if file_name != dir_name {
-          fs::create_dir(&subfolder_path).unwrap();
-        }
-        output_filename = [&subfolder_path, "/index.html"].concat();
-      }
-      // Generate a list of blog posts, if we're building a blog
-      if let Some(blog_posts_vector) = &blog_posts_vector {
-        if result.contains("{{post_list}}") {
+    // Generate the HTML for this file 
+    let html = compile_html(opts, file_name, template_file, style_file, with_frontmatter);
+
+    // Generate a list of blog posts, if we're building a blog
+    if let Some(blog_posts_vector) = &blog_posts_vector {
+      if result.contains("{{post_list}}") {
           let mut html = "".to_string();
           for x in blog_posts_vector.iter() {
             let formatted_date =
@@ -175,18 +210,18 @@ fn generate_html(
                   .replace("{{link}}", &format!("<a href='/{}/{}'>{{{{title}}}}</a>", &x[0], &x[1]))
                   .replace("{{title}}", &x[2])
                   .replace("{{date}}", &format!("<time datetime='{}'>{}</time>", &x[3], formatted_date));
-                html.push_str(&archive_line);
+                  html.push_str(&archive_line);
               }
               // Fall back to a default template otherwise
               else {
                 let archive_line = format!(
-                "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
-                &x[0], // Blog directory
-                &x[1], // Blog post filename
-                &x[2], // Blog post title
-                &x[3], // Blog post date (HTML5 datetime value)
-                formatted_date, // Blog post date (formatted)
-              );
+                  "<article class='post-link'><a href='/{}/{}'>{}</a><time datetime='{}'>{}</time></article>",
+                  &x[0], // Blog directory
+                  &x[1], // Blog post filename
+                  &x[2], // Blog post title
+                  &x[3], // Blog post date (HTML5 datetime value)
+                  formatted_date, // Blog post date (formatted)
+                );
                 html.push_str(&archive_line);
               }
             }
@@ -199,7 +234,6 @@ fn generate_html(
         println!("{}", Style::new().bold().paint("    Writing file"))
       }
     }
-  }
   return blog_posts;
 }
 
@@ -213,18 +247,11 @@ fn main() {
   let output_directory = &opts.output_dir;
   let input_paths: Vec<_> = fs::read_dir(opts.input_dir).unwrap().map(|r| r.unwrap()).collect();
 
-  // Base HTML template
-  let template_content =
-    fs::read_to_string(opts.template_file).expect("Something went wrong reading the template file");
-
-  // Style generation
-  let mut with_style = false;
-  let mut style_content: String = "".to_string();
-  if let Some(style_file) = opts.style_file {
-    style_content =
-      fs::read_to_string(style_file).expect("Something went wrong reading the CSS file");
-    with_style = true;
-  }
+  // // Style generation
+  // let mut with_style = false;
+  // if let Some(style_file) = opts.style_file {
+  //   with_style = true;
+  // }
 
   // Recreate the build directory first
   if opts.verbose {
@@ -260,26 +287,26 @@ fn main() {
     let mut blog_input_paths: Vec<_> =
       fs::read_dir(&blog_dir).unwrap().map(|r| r.unwrap()).collect();
     blog_input_paths.sort_by_key(|dir| Reverse(dir.path()));
-    let post_template_content;
+    // let post_template_content;
     let dir_name = blog_dir.split('/').last().unwrap().to_string();
     let dest_path = [&output_directory, "/", &dir_name].concat();
     // If the blog template file is set...
     if let Some(post_template_file) = opts.post_template_file {
       post_template_content = fs::read_to_string(post_template_file)
         .expect("Something went wrong reading the post template file");
-      // Create the blog posts directory
-      fs::create_dir(&dest_path).unwrap();
-      blog_posts = generate_html(
-        blog_input_paths,
-        &dest_path,
-        with_style,
-        &style_content,
-        &template_content,
-        Some(&post_template_content),
-        None,
-        true,
-        None,
-      );
+        // Create the blog posts directory
+        fs::create_dir(&dest_path).unwrap();
+        blog_posts = generate_html(
+          blog_input_paths,
+          &dest_path,
+          with_style,
+          &style_content,
+          &template_content,
+          Some(&post_template_content),
+          None,
+          true,
+          None,
+        );
     }
   }
 
