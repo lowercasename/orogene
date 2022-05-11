@@ -44,6 +44,7 @@ pub struct FrontMatter {
 #[derive(Clone, Debug)]
 pub struct CompilationResult {
   html: String,
+  content_html: String,
   plain: String,
   title: Option<String>,
   date: Option<NaiveDate>,
@@ -184,7 +185,7 @@ fn compile_feed(posts: Vec<CompilationResult>) -> String {
       .link(format!("{}{}", config.url, post.url.unwrap_or("".to_string())))
       .guid(guid)
       .pub_date(datetime_with_tz.to_rfc2822())
-      .description(post.plain)
+      .content(post.content_html)
       .build()
   }).collect();
   let channel = ChannelBuilder::default()
@@ -237,6 +238,7 @@ fn compile_html(
       compilation_result = CompilationResult {
         plain: result.content,
         html,
+        content_html: rendered_content,
         date: Some(date),
         title: Some(title),
         url: None,
@@ -247,6 +249,7 @@ fn compile_html(
       compilation_result = CompilationResult {
         plain: result.content,
         html,
+        content_html: rendered_content,
         date: None,
         title: None,
         url: None,
@@ -269,6 +272,7 @@ fn compile_html(
     compilation_result = CompilationResult {
       plain: input_content,
       html,
+      content_html: rendered_content,
       date: None,
       title: None,
       url: None,
