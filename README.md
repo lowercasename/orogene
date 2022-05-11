@@ -10,12 +10,13 @@ Given a source directory and the appropriate command line parameters, Orogene ca
 4. **Optionally:** Perform steps 1-3 again, but with a directory containing a set of blog posts, using their own template HTML file which renders their titles and date from YAML front matter, then generate a list of links to those posts and pop it in another template field (`{{post_list}}`) in one of your pages
 5. Save the resultant HTML files into a new directory, optionally each within their own subdirectory
 6. **Optionally:** Copy across a single assets directory into the new directory
+7. **Optionally:** Create an RSS feed file based on the set of generated blog posts
 7. Tell you how long that all took.
 
 The benefits of Orogene are:
 
 - It's fast. Like, _really_ fast.
-- It's tiny. Like, _really_ tiny (~260 lines of code, excluding comments and whitespace).
+- It's tiny. Like, _really_ tiny (~360 lines of code, excluding comments and whitespace).
 - As a command line utility, it's completely customizable on the fly and can therefore be built into other scripts.
 - It's named after a group of characters in a phenomenally good series of fantasy novels by [N. K. Jemisin](https://en.wikipedia.org/wiki/N._K._Jemisin).
 
